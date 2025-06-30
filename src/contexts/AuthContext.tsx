@@ -1,6 +1,7 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { authService } from '@/services/authService';
+import { supabaseAuthService } from '@/services/supabaseAuthService';
+import { supabase } from '@/integrations/supabase/client';
 
 export interface User {
   id: string;
@@ -35,39 +36,48 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Check if user is logged in on app start
     const checkAuth = async () => {
       try {
-        const token = localStorage.getItem('authToken');
-        if (token) {
-          const userData = await authService.verifyToken(token);
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.access_token) {
+          const userData = await supabaseAuthService.verifyToken(session.access_token);
           if (userData) {
             setUser(userData);
           }
         }
       } catch (error) {
         console.error('Auth check failed:', error);
-        localStorage.removeItem('authToken');
       } finally {
         setLoading(false);
       }
     };
 
     checkAuth();
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_IN' && session?.access_token) {
+        const userData = await supabaseAuthService.verifyToken(session.access_token);
+        setUser(userData);
+      } else if (event === 'SIGNED_OUT') {
+        setUser(null);
+      }
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
   const login = async (email: string, password: string) => {
-    const response = await authService.login(email, password);
+    const response = await supabaseAuthService.login(email, password);
     setUser(response.user);
-    localStorage.setItem('authToken', response.token);
   };
 
   const signup = async (name: string, email: string, password: string, role: string) => {
-    const response = await authService.signup(name, email, password, role);
+    const response = await supabaseAuthService.signup(name, email, password, role);
     setUser(response.user);
-    localStorage.setItem('authToken', response.token);
   };
 
-  const logout = () => {
+  const logout = async () => {
+    await supabaseAuthService.logout();
     setUser(null);
-    localStorage.removeItem('authToken');
   };
 
   const value: AuthContextType = {
