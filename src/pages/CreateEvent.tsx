@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -53,7 +52,6 @@ const CreateEvent = () => {
         ...formData,
         maxAttendees: parseInt(formData.maxAttendees),
         organizerId: user.id,
-        organizerName: user.name,
       });
 
       toast({
